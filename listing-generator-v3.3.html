@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amazon Listing 智能生成器</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+/* === McKinsey Design System === */
+:root{
+  --navy:#003366;--navy-l:#0a4d8c;--navy-p:#e8f0f8;--navy-f:#f5f8fc;
+  --bg:#fff;--bgp:#f7f8fa;--bgs:#f2f4f7;--bgh:#edf0f4;
+  --bd:#dde1e6;--bdl:#e8ecf0;
+  --tx:#1a1a2e;--tx2:#4a5568;--tx3:#8896a6;--tx4:#b0bac6;
+  --grn:#0f7b5f;--grn-bg:#e6f5f0;--red:#c53030;--red-bg:#fef2f2;--amb:#b7791f;--amb-bg:#fefce8;
+  --r:6px;--rl:10px;
+  --f:'Noto Sans SC',-apple-system,sans-serif;--m:'JetBrains Mono',monospace;
+  --sh:0 1px 3px rgba(0,0,0,.05);--shm:0 2px 8px rgba(0,0,0,.07)
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:var(--f);background:var(--bgp);color:var(--tx);min-height:100vh;line-height:1.65;-webkit-font-smoothing:antialiased}
+a{color:var(--navy)}
+.app{max-width:1100px;margin:0 auto;padding:32px 28px}
+
+/* Header - McKinsey blue bar */
+.header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid var(--navy)}
+.logo{font-size:20px;font-weight:700;color:var(--navy);letter-spacing:-.3px}
+.logo span{font-weight:400;color:var(--tx2);font-size:14px;margin-left:8px}
+.hdr-r{display:flex;align-items:center;gap:12px}
+.hdr-status{font-size:11px;color:var(--tx3)}
+.set-btn{font-size:12px;padding:6px 16px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);cursor:pointer;font-family:var(--f);color:var(--tx2);font-weight:500;transition:.15s}
+.set-btn:hover{border-color:var(--navy);color:var(--navy)}
+.set-btn.ok{border-color:var(--grn);color:var(--grn);background:var(--grn-bg)}
+.sd{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.sd-on{background:var(--grn)}.sd-off{background:var(--red)}
+
+/* Steps */
+.steps{display:flex;gap:0;margin-bottom:32px;border-bottom:1px solid var(--bd)}
+.st{flex:1;text-align:center;padding:12px 4px 10px;font-size:12px;color:var(--tx4);cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1px;font-weight:500;transition:.2s;user-select:none}
+.st.active{color:var(--navy);border-bottom-color:var(--navy);font-weight:600}
+.st.done{color:var(--grn);border-bottom-color:var(--grn)}
+.st:hover:not(.active):not(.done){color:var(--tx2)}
+
+/* Cards */
+.card{background:var(--bg);border:1px solid var(--bdl);border-radius:var(--rl);padding:24px;margin-bottom:18px;box-shadow:var(--sh)}
+.card-t{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between}
+.card-d{font-size:13px;color:var(--tx2);margin-bottom:18px;line-height:1.65}
+.sec-t{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:8px}
+.sec-d{font-size:13px;color:var(--tx2);margin-bottom:16px}
+
+/* Upload cards */
+.ug{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.ug2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.uc{background:var(--bg);border:1px solid var(--bdl);border-radius:var(--rl);padding:20px;box-shadow:var(--sh);transition:.15s}
+.uc:hover{box-shadow:var(--shm)}
+.uc.req{border-left:3px solid var(--navy)}.uc.opt{border-left:3px solid var(--tx4)}
+.uc h3{font-size:14px;font-weight:600;margin-bottom:6px}
+.uc .desc{font-size:12px;color:var(--tx2);line-height:1.55;margin-bottom:8px}
+.uc .fld{font-size:11px;color:var(--tx3);line-height:1.7}
+.uc .fld b{color:var(--tx2);font-weight:600}
+.tag{display:inline-block;font-size:10px;padding:2px 10px;border-radius:4px;margin-bottom:10px;font-weight:600;letter-spacing:.3px;text-transform:uppercase}
+.tag-r{background:var(--navy-p);color:var(--navy)}.tag-o{background:var(--bgs);color:var(--tx3)}
+.uz{border:1.5px dashed var(--bd);border-radius:var(--r);padding:16px;text-align:center;font-size:12px;color:var(--tx3);margin-top:10px;cursor:pointer;transition:.2s;position:relative;overflow:hidden}
+.uz:hover{border-color:var(--navy);background:var(--navy-f);color:var(--navy)}
+.uz.ok{border-color:var(--grn);border-style:solid;background:var(--grn-bg)}
+.uz.ok .zt{color:var(--grn);font-weight:500}
+.uz input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.ab{background:var(--grn-bg);border-radius:var(--r);padding:8px 12px;margin-top:8px;font-size:11px;color:var(--grn);line-height:1.55}
+
+/* Forms */
+.cr{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.cr label{font-size:13px;color:var(--tx2);min-width:100px;font-weight:500}
+select,input[type=text],input[type=number],input[type=password]{font-family:var(--f);font-size:13px;padding:9px 14px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);color:var(--tx);outline:none}
+textarea{font-family:var(--f);font-size:12px;line-height:1.65;padding:12px 14px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);color:var(--tx);outline:none;resize:vertical;width:100%}
+textarea:focus,select:focus,input:focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(0,51,102,.06)}
+textarea::placeholder{color:var(--tx4)}
+
+/* Buttons */
+.br{display:flex;justify-content:flex-end;gap:10px;margin-top:24px;padding-top:18px;border-top:1px solid var(--bdl)}
+.btn{padding:10px 28px;font-size:13px;font-family:var(--f);font-weight:600;border-radius:var(--r);cursor:pointer;transition:.15s;border:none}
+.bp{background:var(--navy);color:#fff}.bp:hover{background:var(--navy-l)}.bp:disabled{opacity:.4;cursor:not-allowed}
+.bs{background:var(--bg);border:1px solid var(--bd);color:var(--tx2)}.bs:hover{background:var(--bgs);color:var(--navy);border-color:var(--navy)}
+.bsm{padding:4px 14px;font-size:11px}
+
+/* Flow */
+.fb{background:var(--navy-f);border:1px solid var(--navy-p);border-radius:var(--rl);padding:20px;margin-bottom:28px}
+.fb-t{font-size:13px;font-weight:600;color:var(--navy);margin-bottom:12px}
+.fs{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+.fsi{padding:5px 12px;font-size:11px;background:var(--bg);border:1px solid var(--bdl);border-radius:5px;color:var(--tx2);white-space:nowrap;font-weight:500}
+.fsi.ai{background:var(--navy-p);color:var(--navy);border-color:transparent}
+.fa{color:var(--tx4);font-size:11px}
+
+/* Hint */
+.ht{background:var(--bgs);border:1px solid var(--bdl);border-radius:var(--r);padding:14px 16px;font-size:12px;color:var(--tx2);line-height:1.65;margin-top:14px}
+.ht b{color:var(--tx);font-weight:600}
+
+/* Pages */
+.page{display:none}.page.active{display:block;animation:fi .3s ease}
+@keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* Loading */
+.lb{height:3px;background:var(--bdl);border-radius:2px;overflow:hidden;margin-bottom:16px}
+.lb .lf{height:100%;background:var(--navy);border-radius:2px;animation:ld 2s ease-in-out infinite}
+@keyframes ld{0%{width:0;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0;margin-left:100%}}
+
+/* Modal */
+.mbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:200;justify-content:center;align-items:center;backdrop-filter:blur(2px)}
+.mbg.show{display:flex}
+.mdl{background:var(--bg);border-radius:var(--rl);padding:28px;width:520px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.1)}
+.mdl h2{font-size:18px;font-weight:700;color:var(--navy);margin-bottom:16px}
+.mdl label{display:block;font-size:13px;font-weight:500;color:var(--tx2);margin-bottom:4px;margin-top:14px}
+.mdl select,.mdl input[type=text],.mdl input[type=password]{width:100%}
+.pi{margin-top:10px;padding:12px;background:var(--bgs);border-radius:var(--r);font-size:11px;color:var(--tx2);line-height:1.6}
+.pi a{color:var(--navy)}
+.tr{margin-top:8px;padding:8px 12px;border-radius:var(--r);font-size:12px;display:none}
+.tr-ok{display:block;background:var(--grn-bg);color:var(--grn)}
+.tr-fail{display:block;background:var(--red-bg);color:var(--red)}
+
+/* Keyword tree */
+.kwg{margin-bottom:12px;border:1px solid var(--bdl);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)}
+.kwh{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bgs);cursor:pointer;transition:.1s}
+.kwh:hover{background:var(--bgh)}
+.kwh-n{font-size:14px;font-weight:600;color:var(--navy)}
+.kwh-m{font-size:11px;color:var(--tx3)}
+.kwb{display:none;background:var(--bg)}
+.kwg.open .kwb{display:block}
+.kwr{display:grid;grid-template-columns:40px minmax(0,1fr) 80px 80px;gap:6px;padding:7px 16px;font-size:12px;align-items:center;border-top:1px solid var(--bdl)}
+.kwr.krh{background:var(--bgs);font-weight:600;color:var(--tx3);border-top:none;font-size:11px}
+.klv{display:inline-block;font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;text-align:center}
+.k1{background:var(--navy-p);color:var(--navy)}.k2{background:var(--grn-bg);color:var(--grn)}.k3{background:var(--amb-bg);color:var(--amb)}.k4{background:var(--red-bg);color:var(--red)}
+.kw{color:var(--tx)}.kv{color:var(--tx2);text-align:right;font-family:var(--m);font-size:11px}.ka{color:var(--navy);text-align:right;font-family:var(--m);font-size:11px;font-weight:600}
+
+/* Audience cards */
+.ag{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.ac{border:1.5px solid var(--bd);border-radius:var(--rl);padding:16px;cursor:pointer;transition:.2s;position:relative;background:var(--bg)}
+.ac:hover{border-color:var(--navy);box-shadow:var(--sh)}
+.ac.sel{border-color:var(--navy);background:var(--navy-f)}
+.ack{position:absolute;top:14px;right:14px;width:20px;height:20px;border:1.5px solid var(--bd);border-radius:4px;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.ac.sel .ack{background:var(--navy);border-color:var(--navy)}
+.ac.sel .ack::after{content:"";width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translateY(-1px)}
+.an{font-size:14px;font-weight:600;color:var(--navy);margin-bottom:6px;display:flex;align-items:center;gap:8px;padding-right:30px}
+.adot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.adesc{font-size:12px;color:var(--tx2);line-height:1.55;margin-bottom:6px}
+.ast{font-size:11px;color:var(--tx3);line-height:1.6}.ast b{color:var(--tx2)}
+.akw{font-size:10px;color:var(--tx3);padding:6px 8px;background:var(--bgs);border-radius:var(--r);margin-top:6px;line-height:1.5}
+.bo{display:inline-block;font-size:10px;padding:2px 8px;border-radius:4px;background:var(--amb-bg);color:var(--amb);font-weight:600}
+.bb{display:inline-block;font-size:10px;padding:2px 8px;border-radius:4px;background:var(--navy-p);color:var(--navy);font-weight:600}
+
+/* Assign */
+.asn{margin-top:16px;padding:16px;background:var(--bgs);border-radius:var(--rl);border:1px solid var(--bdl)}
+.asn-t{font-size:14px;font-weight:600;color:var(--navy);margin-bottom:12px}
+.asn-r{display:flex;align-items:center;gap:12px;margin-bottom:8px;font-size:13px}
+.asn-l{min-width:60px;color:var(--tx2);font-weight:600}
+.asn-r select{flex:1}
+.asn-h{font-size:11px;color:var(--tx3);margin-top:10px;line-height:1.55}
+
+/* Editor */
+.editor{display:grid;grid-template-columns:minmax(0,1fr) 216px;gap:16px}
+.ed-m{display:flex;flex-direction:column;gap:14px}
+.ed-s{display:flex;flex-direction:column;gap:10px}
+.bf{margin-bottom:14px}
+.bh{display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap}
+.bl{font-size:13px;font-weight:600;color:var(--navy)}
+.bt{font-size:10px;padding:2px 9px;border-radius:4px;font-weight:600}
+.bt-a{background:var(--navy-p);color:var(--navy)}
+.bt-p{background:var(--red-bg);color:var(--red)}
+.bt-r{background:var(--amb-bg);color:var(--amb)}
+.ctags{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+.ctg{font-size:9px;padding:2px 7px;border-radius:4px;font-weight:600}
+.ctg-on{background:var(--grn-bg);color:var(--grn)}
+.bm{display:flex;align-items:center;gap:8px;margin-top:4px;font-size:11px;color:var(--tx3);flex-wrap:wrap}
+.m-ok{color:var(--grn);font-weight:500}
+.rg{font-size:11px;color:var(--navy);cursor:pointer;padding:3px 10px;border:1px solid var(--navy-p);border-radius:4px;background:var(--bg);font-family:var(--f);margin-left:auto;font-weight:500}
+.rg:hover{background:var(--navy-p)}
+
+/* Side panels */
+.sc{background:var(--bgs);border-radius:var(--r);padding:12px;border:1px solid var(--bdl)}
+.sct{font-size:11px;font-weight:600;color:var(--navy);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px}
+.ci{display:flex;align-items:flex-start;gap:5px;font-size:11px;line-height:1.4;margin-bottom:4px;color:var(--tx2)}
+.cok{color:var(--grn)}.cno{color:var(--red)}
+.cvb{height:5px;background:var(--bdl);border-radius:3px;margin:6px 0 10px;overflow:hidden}
+.cvf{height:100%;border-radius:3px;transition:width .5s}
+.cmr{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--tx2);margin-bottom:3px}
+.cmd{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* Scores */
+.sgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:24px}
+.scard{background:var(--bg);border:1px solid var(--bdl);border-radius:var(--r);padding:14px;text-align:center;box-shadow:var(--sh)}
+.sn{font-size:22px;font-weight:700;font-family:var(--m);margin-bottom:2px}
+.sl{font-size:11px;color:var(--tx3);font-weight:500}
+
+/* Export */
+.egrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:14px}
+.ebtn{padding:16px;border:1px solid var(--bd);border-radius:var(--r);text-align:center;font-size:13px;cursor:pointer;background:var(--bg);color:var(--tx);font-family:var(--f);font-weight:500;box-shadow:var(--sh)}
+.ebtn:hover{border-color:var(--navy);background:var(--navy-f);color:var(--navy)}
+.ebtn .fmt{font-size:10px;color:var(--tx3);display:block;margin-top:4px;font-weight:400}
+
+/* Streaming */
+.ai-c{display:inline-block;width:2px;height:14px;background:var(--navy);animation:bk .8s infinite;vertical-align:text-bottom;margin-left:2px}
+@keyframes bk{0%,100%{opacity:1}50%{opacity:0}}
+
+/* Stat cards */
+.stg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.stc{background:var(--bg);border:1px solid var(--bdl);border-radius:var(--r);padding:14px;text-align:center;box-shadow:var(--sh)}
+.stn{font-size:22px;font-weight:700;font-family:var(--m);margin-bottom:2px}
+.stl{font-size:11px;color:var(--tx3)}
+
+/* Comp analysis */
+.cpc{border:1px solid var(--bdl);border-radius:var(--r);padding:16px;margin-bottom:12px;background:var(--bg)}
+.cp-a{font-size:13px;font-weight:600;color:var(--navy);margin-bottom:4px}
+.cp-t{font-size:12px;color:var(--tx2);margin-bottom:8px;line-height:1.5;background:var(--bgs);padding:8px 10px;border-radius:var(--r)}
+.cp-i{font-size:12px;color:var(--tx2);margin-bottom:4px;line-height:1.55}
+.cp-i b{color:var(--tx);font-weight:600}
+.cp-g{color:var(--grn)}.cp-b{color:var(--red)}
+
+/* Rufus */
+.ruf{display:grid;grid-template-columns:30px 1fr 60px;gap:8px;padding:10px 14px;font-size:12px;line-height:1.5;border-radius:var(--r);margin-bottom:4px}
+.ruf:nth-child(odd){background:var(--bgs)}
+.ruf-n{font-weight:600;color:var(--tx2)}
+.ruf-s{text-align:right}
+.sb{font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px}
+.sb-ok{background:var(--grn-bg);color:var(--grn)}.sb-gap{background:var(--red-bg);color:var(--red)}.sb-w{background:var(--amb-bg);color:var(--amb)}
+
+/* A+ plan */
+.aplus{font-size:12px;color:var(--tx2);line-height:1.85}
+.aplus b{color:var(--tx)}.aplus .aa{color:var(--navy);font-weight:600}
+
+/* Summary box */
+.smb{background:var(--bgs);border:1px solid var(--bdl);border-radius:var(--r);padding:14px 16px;margin-top:14px;font-size:12px;color:var(--tx2);line-height:1.65}
+.smb b{color:var(--tx);font-weight:600}
+
+/* Responsive */
+@media(max-width:768px){.ug,.ug2,.ag{grid-template-columns:1fr}.editor{grid-template-columns:1fr}.sgrid,.stg{grid-template-columns:1fr 1fr}.egrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- Settings Modal -->
+<div class="mbg" id="modal" onclick="if(event.target===this)this.classList.remove('show')">
+<div class="mdl">
+<h2>AI 模型配置</h2>
+<label>AI 服务商</label>
+<select id="c-prov" onchange="provChange()">
+<option value="claude">Claude (Anthropic)</option>
+<option value="openai">GPT (OpenAI)</option>
+<option value="deepseek">DeepSeek</option>
+<option value="gemini">Gemini (Google)</option>
+<option value="kimi">Kimi (Moonshot)</option>
+<option value="qwen">通义千问 (Alibaba)</option>
+<option value="custom">自定义（OpenAI兼容）</option>
+</select>
+<div class="pi" id="pinfo">获取Key：<a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a> → API Keys → Create Key</div>
+<label>API Key</label>
+<input type="password" id="c-key" placeholder="sk-ant-... 或 sk-...">
+<div class="ht" style="margin-top:4px;padding:6px 10px">Key 仅存储在浏览器本地，不会上传任何服务器</div>
+<label style="margin-top:14px;display:flex;align-items:center;gap:8px;cursor:pointer">
+<input type="checkbox" id="c-proxy" onchange="document.getElementById('proxy-r').style.display=this.checked?'block':'none'" style="width:auto;margin:0">
+<span style="font-size:13px;font-weight:500;color:var(--tx2)">使用中转/代理地址</span>
+</label>
+<div id="proxy-r" style="display:none;margin-top:8px">
+<input type="text" id="c-purl" placeholder="例如：https://api.vectorengine.ai" style="width:100%">
+<div class="ht" style="margin-top:4px;padding:6px 10px">只需填域名，系统自动拼接API路径</div>
+</div>
+<div id="custom-r" style="display:none">
+<label>API Endpoint</label>
+<input type="text" id="c-ep" placeholder="https://api.example.com/v1/chat/completions" style="width:100%">
+<label>模型名称</label>
+<input type="text" id="c-mdl" placeholder="例如：gpt-4, glm-4..." style="width:100%">
+</div>
+<div class="br" style="border:none;padding-top:12px;margin-top:12px">
+<button class="btn bs" onclick="testConn()">测试连接</button>
+<button class="btn bp" onclick="saveCfg()">保存配置</button>
+</div>
+<div class="tr" id="tresult"></div>
+</div>
+</div>
+
+<div class="app">
+<div class="header">
+<div class="logo">Amazon Listing 智能生成器 <span>v3.0</span></div>
+<div class="hdr-r">
+<div class="hdr-status" id="hstatus"><span class="sd sd-off"></span>未配置模型</div>
+<button class="set-btn" id="sbtn" onclick="document.getElementById('modal').classList.add('show')">模型配置</button>
+</div>
+</div>
+
+<div class="steps" id="steps-bar">
+<div class="st active" data-s="1" onclick="nav(1)">1. 上传数据</div>
+<div class="st" data-s="2" onclick="nav(2)">2. 关键词分析</div>
+<div class="st" data-s="3" onclick="nav(3)">3. 人群选择</div>
+<div class="st" data-s="4" onclick="nav(4)">4. 竞品拆解</div>
+<div class="st" data-s="5" onclick="nav(5)">5. 生成Listing</div>
+<div class="st" data-s="6" onclick="nav(6)">6. 导出</div>
+</div>
+
+<!-- ====== PAGE 1: Upload ====== -->
+<div class="page active" id="p1">
+<div class="fb">
+<div class="fb-t">数据处理流程 — 你只需上传原始数据，每一步的分析由 AI 分步完成</div>
+<div class="fs"><span class="fsi">上传数据</span><span class="fa">→</span><span class="fsi ai">关键词四级分类</span><span class="fa">→</span><span class="fsi ai">买家人群识别</span><span class="fa">→</span><span class="fsi">你：选择人群</span><span class="fa">→</span><span class="fsi ai">竞品文案拆解</span><span class="fa">→</span><span class="fsi ai">生成Listing</span><span class="fa">→</span><span class="fsi ai">校验报告</span></div>
+</div>
+
+<div class="sec-t">必传文件</div>
+<div class="sec-d">直接上传工具导出的原始数据或粘贴文本，AI 分步完成所有分析。</div>
+<div class="ug">
+<div class="uc req"><span class="tag tag-r">必传</span><h3>① 关键词库表</h3><div class="desc">卖家精灵、西柚、H10、ABA等工具导出的关键词数据</div><div class="fld"><b>最少包含：</b>关键词（有搜索量和ABA排名更好）</div><div class="ab">AI 自动：四级分类 → 词根聚类 → 所有词根完整递进链</div><div class="uz" id="z-kw"><span class="zt">+ 拖拽上传 .xlsx / .csv</span><input type="file" accept=".xlsx,.csv,.xls" onchange="hf(this,'kw')"></div><div style="text-align:center;font-size:11px;color:var(--tx4);margin:6px 0">或直接粘贴</div><textarea id="t-kw" rows="3" placeholder="每行一个关键词，或粘贴表格内容..."></textarea></div>
+<div class="uc req"><span class="tag tag-r">必传</span><h3>② 参考竞品表</h3><div class="desc">竞品的标题和五点描述，可从卖家精灵导出或手动复制</div><div class="fld"><b>最少包含：</b>竞品标题（有五点描述更好）</div><div class="ab">AI 自动：拆解Title埋词策略 → 分析Bullet写作逻辑 → 提炼共性规律</div><div class="uz" id="z-comp"><span class="zt">+ 拖拽上传 .xlsx / .csv</span><input type="file" accept=".xlsx,.csv,.xls" onchange="hf(this,'comp')"></div><div style="text-align:center;font-size:11px;color:var(--tx4);margin:6px 0">或直接粘贴</div><textarea id="t-comp" rows="3" placeholder="粘贴竞品Title和五点..."></textarea></div>
+<div class="uc req"><span class="tag tag-r">必传</span><h3>③ 产品信息</h3><div class="desc">你的产品规格和卖点</div><div class="fld"><b>方式A：</b>上传Excel　<b>方式B：</b>文本框填写</div><div class="ab">AI 识别：名称、材质、尺寸、卖点、差异化等</div><div class="uz" id="z-prod"><span class="zt">+ 拖拽上传 .xlsx / .csv / .pdf</span><input type="file" accept=".xlsx,.csv,.xls,.pdf" onchange="hf(this,'prod')"></div><div style="text-align:center;font-size:11px;color:var(--tx4);margin:6px 0">或直接粘贴</div><textarea id="t-prod" rows="3" placeholder="品牌：YourBrand&#10;产品：不锈钢保温杯 500ml&#10;材质：304不锈钢..."></textarea></div>
+</div>
+
+<div style="margin-top:24px"><div class="sec-t">可选增强文件</div>
+<div class="ug2">
+<div class="uc opt"><span class="tag tag-o">可选</span><h3>竞品评论数据</h3><div class="desc">Review文本，提取买家语言和痛点</div><div class="uz" id="z-rev"><span class="zt">+ 拖拽上传 .xlsx / .csv</span><input type="file" accept=".xlsx,.csv,.json" onchange="hf(this,'rev')"></div><div style="text-align:center;font-size:11px;color:var(--tx4);margin:6px 0">或直接粘贴</div><textarea id="t-rev" rows="3" placeholder="粘贴竞品评论..."></textarea></div>
+<div class="uc opt"><span class="tag tag-o">可选</span><h3>Rufus 信息收集</h3><div class="desc">用10个标准问题向Rufus提问的结果</div><div class="uz" id="z-ruf"><span class="zt">+ 拖拽上传 .xlsx / .csv</span><input type="file" accept=".xlsx,.csv,.xls" onchange="hf(this,'ruf')"></div><div style="text-align:center;font-size:11px;color:var(--tx4);margin:6px 0">或直接粘贴</div><textarea id="t-ruf" rows="3" placeholder="粘贴Rufus的回答..."></textarea></div>
+</div></div>
+
+<div style="margin-top:24px"><div class="sec-t">站点配置</div>
+<div class="cr"><label>目标站点</label><select id="cfg-mk"><option value="US">美国站</option><option value="DE">德国站</option><option value="UK">英国站</option><option value="JP">日本站</option></select></div>
+<div class="cr"><label>产品类目</label><input type="text" id="cfg-cat" placeholder="例如：Home & Kitchen" style="flex:1"></div>
+<div class="cr"><label>Title限制</label><input type="number" id="cfg-tl" value="200"><span style="font-size:11px;color:var(--tx3);margin-left:4px">字符</span></div>
+<div class="cr"><label>ST限制</label><input type="number" id="cfg-st" value="249"><span style="font-size:11px;color:var(--tx3);margin-left:4px">bytes</span></div>
+</div>
+
+<div class="ht"><b>提示：</b>关键词表建议100词以上，竞品建议5-20个ASIN的Title和五点。数据越丰富，分析质量越高。</div>
+<div class="br"><button class="btn bp" onclick="runStep('keywords')">开始第一步：关键词分析 →</button></div>
+</div>
+
+<!-- ====== PAGE 2: Keywords ====== -->
+<div class="page" id="p2">
+<div class="lb" id="lb2"><div class="lf"></div></div>
+<div id="p2-content">
+<div class="card"><div class="card-t">关键词四级分类结果</div><div class="card-d">AI 正在分析关键词数据...</div></div>
+</div>
+<div class="br"><button class="btn bs" onclick="nav(1)">返回修改</button><button class="btn bs" onclick="runStep('keywords')">重新分析</button><button class="btn bp" id="btn-s2" disabled onclick="runStep('audiences')">下一步：买家人群识别 →</button></div>
+</div>
+
+<!-- ====== PAGE 3: Audiences ====== -->
+<div class="page" id="p3">
+<div class="lb" id="lb3"><div class="lf"></div></div>
+<div id="p3-content">
+<div class="card"><div class="card-t">买家人群识别</div><div class="card-d">AI 正在识别买家人群...</div></div>
+</div>
+<div class="br"><button class="btn bs" onclick="nav(2)">返回关键词</button><button class="btn bs" onclick="runStep('audiences')">重新分析</button><button class="btn bp" id="btn-s3" disabled onclick="runStep('competitors')">下一步：竞品文案拆解 →</button></div>
+</div>
+
+<!-- ====== PAGE 4: Competitor Analysis ====== -->
+<div class="page" id="p4">
+<div class="lb" id="lb4"><div class="lf"></div></div>
+<div id="p4-content">
+<div class="card"><div class="card-t">竞品文案结构分析</div><div class="card-d">AI 正在拆解竞品Title和五点的写作逻辑...</div></div>
+</div>
+<div class="br"><button class="btn bs" onclick="nav(3)">返回人群</button><button class="btn bs" onclick="runStep('competitors')">重新分析</button><button class="btn bp" id="btn-s4" disabled onclick="runStep('listing')">下一步：生成 Listing →</button></div>
+</div>
+
+<!-- ====== PAGE 5: Listing Editor ====== -->
+<div class="page" id="p5">
+<div class="lb" id="lb5"><div class="lf"></div></div>
+<div id="p5-content">
+<div class="card"><div class="card-t">Listing 生成与校验</div><div class="card-d">AI 正在生成...</div></div>
+</div>
+<div class="br"><button class="btn bs" onclick="nav(4)">返回竞品分析</button><button class="btn bs" onclick="runStep('listing')">重新生成</button><button class="btn bp" id="btn-s5" disabled onclick="buildExport();nav(6)">校验通过，进入导出 →</button></div>
+</div>
+
+<!-- ====== PAGE 6: Export ====== -->
+<div class="page" id="p6">
+<div id="p6-content"></div>
+</div>
+
+</div>
+
+<script>
+// ============ PROVIDERS ============
+const P={
+  claude:{n:'Claude (Anthropic)',ep:'https://api.anthropic.com/v1/messages',fmt:'anthropic',mdl:'claude-sonnet-4-20250514',info:'获取Key：<a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a> → API Keys → Create Key'},
+  openai:{n:'GPT (OpenAI)',ep:'https://api.openai.com/v1/chat/completions',fmt:'openai',mdl:'gpt-4.1',info:'获取Key：<a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a> → API Keys'},
+  deepseek:{n:'DeepSeek',ep:'https://api.deepseek.com/v1/chat/completions',fmt:'openai',mdl:'deepseek-chat',info:'获取Key：<a href="https://platform.deepseek.com/api_keys" target="_blank">platform.deepseek.com</a> → API Keys'},
+  gemini:{n:'Gemini (Google)',ep:'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',fmt:'openai',mdl:'gemini-2.5-flash',info:'获取Key：<a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> → 创建API Key'},
+  kimi:{n:'Kimi (Moonshot)',ep:'https://api.moonshot.cn/v1/chat/completions',fmt:'openai',mdl:'moonshot-v1-128k',info:'获取Key：<a href="https://platform.moonshot.cn/console/api-keys" target="_blank">platform.moonshot.cn</a> → API Key管理'},
+  qwen:{n:'通义千问',ep:'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',fmt:'openai',mdl:'qwen-plus',info:'获取Key：<a href="https://dashscope.console.aliyun.com/apiKey" target="_blank">dashscope.console.aliyun.com</a> → API-KEY管理'},
+  custom:{n:'自定义',ep:'',fmt:'openai',mdl:'',info:'填入兼容OpenAI格式的API地址和Key'}
+};
+
+let C=JSON.parse(localStorage.getItem('lg-cfg')||'{}');
+let F={};  // uploaded files
+let R={};  // results from each step
+let curStep=1;
+
+// ============ SETTINGS ============
+function provChange(){
+  const p=document.getElementById('c-prov').value;
+  document.getElementById('pinfo').innerHTML=P[p].info;
+  document.getElementById('custom-r').style.display=p==='custom'?'block':'none';
+  document.getElementById('tresult').style.display='none';
+}
+function saveCfg(){
+  const pv=document.getElementById('c-prov').value,pr=P[pv];
+  const useProxy=document.getElementById('c-proxy').checked;
+  const purl=(document.getElementById('c-purl').value||'').replace(/\/+$/,'');
+  let ep,mdl;
+  if(pv==='custom'){ep=document.getElementById('c-ep').value;mdl=document.getElementById('c-mdl').value||'gpt-4';}
+  else if(useProxy&&purl){ep=pr.fmt==='anthropic'?purl+'/v1/messages':purl+'/v1/chat/completions';mdl=pr.mdl;}
+  else{ep=pr.ep;mdl=pr.mdl;}
+  C={prov:pv,key:document.getElementById('c-key').value,mdl,ep,proxy:useProxy,purl};
+  localStorage.setItem('lg-cfg',JSON.stringify(C));
+  document.getElementById('modal').classList.remove('show');
+  updStatus();
+}
+function updStatus(){
+  const el=document.getElementById('hstatus'),btn=document.getElementById('sbtn');
+  if(C.key){
+    el.innerHTML='<span class="sd sd-on"></span>'+P[C.prov]?.n+(C.proxy?' <span style="font-size:10px;color:var(--amb)">(中转)</span>':'');
+    btn.classList.add('ok');btn.textContent='已连接';
+  }else{
+    el.innerHTML='<span class="sd sd-off"></span>未配置';btn.classList.remove('ok');btn.textContent='模型配置';
+  }
+}
+async function testConn(){
+  const r=document.getElementById('tresult');r.className='tr';r.style.display='block';r.textContent='测试中...';
+  // Temporarily save current form values to C so callAI can use them
+  const pv=document.getElementById('c-prov').value,pr=P[pv];
+  const useProxy=document.getElementById('c-proxy').checked;
+  const purl=(document.getElementById('c-purl').value||'').replace(/\/+$/,'');
+  let ep,mdl;
+  if(pv==='custom'){ep=document.getElementById('c-ep').value;mdl=document.getElementById('c-mdl').value||'gpt-4';}
+  else if(useProxy&&purl){ep=pr.fmt==='anthropic'?purl+'/v1/messages':purl+'/v1/chat/completions';mdl=pr.mdl;}
+  else{ep=pr.ep;mdl=pr.mdl;}
+  const oldC={...C};
+  C={prov:pv,key:document.getElementById('c-key').value,mdl,ep,proxy:useProxy,purl};
+  try{const t=await callAI('回复"连接成功"四个字',false);r.className='tr tr-ok';r.textContent='✓ 连接成功：'+t.substring(0,50);}
+  catch(e){
+    r.className='tr tr-fail';
+    let msg=e.message;
+    if(msg.includes('Failed to fetch')||msg.includes('NetworkError')||msg.includes('CORS')){
+      msg='网络请求失败。可能原因：\n1. API地址不支持浏览器直接调用（CORS限制）\n2. 网络连接问题\n3. API Key格式不正确\n\n建议：如果该服务商不支持浏览器直接调用，请使用中转地址。';
+    }
+    r.textContent='✗ 失败：'+msg;
+    C=oldC;
+  }
+}
+// Load saved config
+if(C.prov){document.getElementById('c-prov').value=C.prov;provChange();if(C.key)document.getElementById('c-key').value=C.key;if(C.proxy){document.getElementById('c-proxy').checked=true;document.getElementById('proxy-r').style.display='block';if(C.purl)document.getElementById('c-purl').value=C.purl;}}
+updStatus();
+
+// ============ NAVIGATION ============
+function nav(s){
+  if(s>curStep+1)return; // can't skip ahead
+  document.querySelectorAll('.st').forEach((e,i)=>{e.classList.remove('active','done');if(i+1<s)e.classList.add('done');if(i+1===s)e.classList.add('active');});
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('p'+s)?.classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ============ FILE HANDLING ============
+function hf(inp,type){
+  const file=inp.files[0];if(!file)return;
+  const z=document.getElementById('z-'+type);z.classList.add('ok');z.querySelector('.zt').textContent='✓ '+file.name;
+  const rd=new FileReader();
+  rd.onload=e=>{try{const wb=XLSX.read(e.target.result,{type:'binary'});F[type]={name:file.name,csv:XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]])};}catch(ex){F[type]={name:file.name,csv:e.target.result};}};
+  rd.readAsBinaryString(file);
+}
+
+// ============ GATHER ALL DATA ============
+function gatherData(){
+  let d='';
+  const kwT=document.getElementById('t-kw')?.value||'';
+  if(F.kw) d+='\n\n## 关键词数据（上传文件前500行）：\n'+F.kw.csv.split('\n').slice(0,501).join('\n');
+  if(kwT) d+='\n\n## 关键词数据（用户粘贴）：\n'+kwT;
+  const compT=document.getElementById('t-comp')?.value||'';
+  if(F.comp) d+='\n\n## 参考竞品数据（上传文件前60行）：\n'+F.comp.csv.split('\n').slice(0,61).join('\n');
+  if(compT) d+='\n\n## 参考竞品数据（用户粘贴）：\n'+compT;
+  const prodT=document.getElementById('t-prod')?.value||'';
+  if(F.prod) d+='\n\n## 产品信息（上传文件前30行）：\n'+F.prod.csv.split('\n').slice(0,31).join('\n');
+  if(prodT) d+='\n\n## 产品信息（用户输入）：\n'+prodT;
+  const revT=document.getElementById('t-rev')?.value||'';
+  if(F.rev) d+='\n\n## 竞品评论数据（上传文件前60行）：\n'+F.rev.csv.split('\n').slice(0,61).join('\n');
+  if(revT) d+='\n\n## 竞品评论数据（用户粘贴）：\n'+revT;
+  const rufT=document.getElementById('t-ruf')?.value||'';
+  if(F.ruf) d+='\n\n## Rufus信息收集数据：\n'+F.ruf.csv;
+  if(rufT) d+='\n\n## Rufus信息收集数据（用户粘贴）：\n'+rufT;
+  return d;
+}
+function cfgStr(){return `站点：${document.getElementById('cfg-mk').value} | 类目：${document.getElementById('cfg-cat').value||'未指定'} | Title限制：${document.getElementById('cfg-tl').value}字符 | ST限制：${document.getElementById('cfg-st').value} bytes`;}
+
+// ============ UNIFIED AI CALLER ============
+async function callAI(prompt,stream=true,el=null){
+  if(!C.key)throw new Error('未配置API Key');
+  const fmt=P[C.prov]?.fmt||'openai';
+  if(fmt==='anthropic'){
+    const body={model:C.mdl,max_tokens:8000,messages:[{role:'user',content:prompt}]};
+    const hdrs={'Content-Type':'application/json','x-api-key':C.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'};
+    if(stream&&el){hdrs.accept='text/event-stream';body.stream=true;const r=await fetch(C.ep,{method:'POST',headers:hdrs,body:JSON.stringify(body)});if(!r.ok)throw new Error('API '+r.status+': '+(await r.text()).substring(0,200));return await streamA(r,el);}
+    else{const r=await fetch(C.ep,{method:'POST',headers:hdrs,body:JSON.stringify(body)});if(!r.ok)throw new Error('API '+r.status);const d=await r.json();return d.content?.[0]?.text||'';}
+  }else{
+    const body={model:C.mdl,messages:[{role:'user',content:prompt}],max_tokens:8000};
+    const hdrs={'Content-Type':'application/json','Authorization':'Bearer '+C.key};
+    if(stream&&el){body.stream=true;const r=await fetch(C.ep,{method:'POST',headers:hdrs,body:JSON.stringify(body)});if(!r.ok)throw new Error('API '+r.status+': '+(await r.text()).substring(0,200));return await streamO(r,el);}
+    else{const r=await fetch(C.ep,{method:'POST',headers:hdrs,body:JSON.stringify(body)});if(!r.ok)throw new Error('API '+r.status);const d=await r.json();return d.choices?.[0]?.message?.content||'';}
+  }
+}
+async function streamA(resp,el){const reader=resp.body.getReader();const dec=new TextDecoder();let full='',buf='';el.innerHTML='';while(true){const{done,value}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();for(const l of lines){if(!l.startsWith('data: '))continue;const d=l.slice(6);if(d==='[DONE]')continue;try{const j=JSON.parse(d);if(j.type==='content_block_delta'&&j.delta?.text){full+=j.delta.text;el.innerHTML=md(full)+'<span class="ai-c"></span>';el.scrollTop=el.scrollHeight;}}catch(e){}}}el.innerHTML=md(full);return full;}
+async function streamO(resp,el){const reader=resp.body.getReader();const dec=new TextDecoder();let full='',buf='';el.innerHTML='';while(true){const{done,value}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();for(const l of lines){if(!l.startsWith('data: '))continue;const d=l.slice(6).trim();if(d==='[DONE]')continue;try{const j=JSON.parse(d);const delta=j.choices?.[0]?.delta?.content;if(delta){full+=delta;el.innerHTML=md(full)+'<span class="ai-c"></span>';el.scrollTop=el.scrollHeight;}}catch(e){}}}el.innerHTML=md(full);return full;}
+
+function md(t){
+  return t
+    .replace(/^####\s+(.+)$/gm,'<h4 style="font-size:13px;font-weight:600;color:var(--navy);margin:12px 0 4px">$1</h4>')
+    .replace(/^###\s+(.+)$/gm,'<h3 style="font-size:14px;font-weight:600;color:var(--navy);margin:16px 0 6px">$1</h3>')
+    .replace(/^##\s+(.+)$/gm,'<h2 style="font-size:16px;font-weight:700;color:var(--navy);margin:20px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--bdl)">$1</h2>')
+    .replace(/\*\*(.+?)\*\*/g,'<b style="color:var(--tx);font-weight:600">$1</b>')
+    .replace(/`([^`]+)`/g,'<code style="background:var(--bgs);padding:1px 6px;border-radius:3px;font-family:var(--m);font-size:12px">$1</code>')
+    .replace(/^[-*]\s+(.+)$/gm,'<div style="padding-left:16px;position:relative;margin:2px 0"><span style="position:absolute;left:4px;color:var(--navy)">•</span>$1</div>')
+    .replace(/^(\d+)\.\s+(.+)$/gm,'<div style="padding-left:20px;position:relative;margin:2px 0"><span style="position:absolute;left:0;color:var(--navy);font-weight:600">$1.</span>$2</div>')
+    .replace(/\n\n/g,'<br><br>')
+    .replace(/\n/g,'<br>');
+}
+
+// ============ SKILL SYSTEM PROMPT ============
+const SYS=`你是Amazon Listing写作专家。所有输出用中文。严格按方法论执行。
+
+## 核心原则
+1. 竞品分析重点是【拆解Title和五点的写作逻辑和埋词策略】，不分析价格带和流量结构
+4. 人群识别必须做【品类相关度校验】——宽泛词（如home decor）搜索量不算入窄人群，只算高相关词
+5. 人群必须输出【优先级排序】——综合真实流量、差异化空间、转化潜力三维度
+6. 严禁编造产品特征——只使用用户提供的产品信息，未提到的特征标注为「建议增加」
+2. 关键词分类必须【展示所有词根的完整递进链】，重要孤立词单独列出
+3. Rufus信息的价值是【提取买家思维方向和信息缺口】，不照搬原话
+
+## COSMO 7大标签
+capable_of(能力) | used_for_func(功能) | used_in_loc(场景) | used_for_audience(人群) | used_for_event(事件) | used_with(搭配) | xIs_a(身份反推)
+
+## 文案生成铁律
+- FAB是内部分析工具，输出文案中绝不能出现 Feature:/capable_of()/Benefit: 标签
+- COSMO标签同理，不在文案中标注，只确保语义自然覆盖
+- 每条Bullet限180-270字符（视情况灵活调整），标题行用Title Case（首字母大写，不要全大写ALL CAPS），用买家语言说结果
+- 材质和数量信息不能缺失（未确认具体材质写"thick-walled glass"等定性描述）\n- "Proven"换成"Works with"或"Compatible with"\n- 未确认的精确数字用模糊安全表达替代（如"deep enough to keep herbs hydrated"代替"120ml"）
+- 不做绝对化承诺（zero returns/guaranteed/3x faster）
+- 不把偶发用途当核心卖点（个别Rufus提及≠适合写进Bullet）
+
+## 去噪规则
+主题不重叠 | 无营销废话 | 无技术术语（deployment/optimized→换日常用语）| 每条独立信息
+
+## 合规
+不用#1/best seller/guaranteed/free shipping | 不做未认证声明 | ST美国站249 bytes`;
+
+// ============ MULTI-STEP ORCHESTRATION ============
+async function runStep(step){
+  if(!C.key){document.getElementById('modal').classList.add('show');return;}
+  const data=gatherData();const cfg=cfgStr();
+
+  if(step==='keywords'){
+    nav(2);curStep=Math.max(curStep,2);
+    const el=document.getElementById('p2-content');
+    el.innerHTML='<div class="card"><div class="card-t">关键词四级分类 <span style="font-size:12px;color:var(--tx3);font-weight:400">AI 分析中...</span></div><div id="kw-stream" style="font-size:13px;line-height:1.8;color:var(--tx);max-height:400px;overflow-y:auto"></div></div><div id="kw-ui"></div>';
+    document.getElementById('lb2').style.display='block';
+
+    // Step A: Stream raw analysis for user to see progress
+    const prompt1=SYS+`\n\n## 用户配置\n${cfg}\n\n## 用户数据\n${data}\n\n## 任务：关键词四级分类\n\n【重要】所有搜索量和ABA排名必须使用用户上传数据表中的原始数值，严禁估算或编造数字。如果某个词在数据表中没有对应数据，标注"数据缺失"而不是猜一个数字。\n\n从关键词数据中提取所有一级词根（通常4-8个），按搜索量从高到低排序。每个词根展开为完整的一级→二级→三级→四级递进链。\n每个词必须附上数据表中的真实搜索量和ABA排名。\n如果有重要的独立高价值词，单独列出。\n\n最后总结一级词优先排序和词根总数。`;
+    try{
+      R.keywords=await callAI(prompt1,true,document.getElementById('kw-stream'));
+      
+      // Step B: Ask AI to convert to JSON for structured rendering
+      document.getElementById('kw-stream').style.maxHeight='200px';
+      document.getElementById('kw-stream').style.overflow='hidden';
+      const prompt2=`请将以下关键词分析结果转换为严格的JSON格式。只输出JSON，不要任何其他文字或markdown标记。
+
+${R.keywords}
+
+JSON格式要求：
+{
+  "roots": [
+    {
+      "name": "一级词名称",
+      "volume": 搜索量数字,
+      "aba": "ABA排名",
+      "count": 该词根下关键词总数,
+      
+      "words": [
+        {"level": 1, "word": "关键词", "volume": 搜索量数字, "aba": "排名字符串如#8420"},
+        {"level": 2, "word": "关键词", "volume": 搜索量数字, "aba": "排名字符串"}
+      ]
+    }
+  ],
+  "orphans": [
+    {"word": "独立高价值词", "volume": 搜索量, "aba": "排名", "position": "建议埋入位置"}
+  ],
+  "summary": {"total_roots": 数字, "total_keywords": 数字, "priority_order": ["词1","词2"]}
+}
+注意：搜索量必须是数字不是字符串。如果数据中没有某个字段就用0或空字符串。`;
+      
+      const jsonStr=await callAI(prompt2,false);
+      try{
+        const clean=jsonStr.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+        const j=JSON.parse(clean);
+        R.kwJSON=j;
+        renderKwUI(j);
+      }catch(pe){
+        // JSON parse failed, keep the text output
+        console.log('JSON parse failed, showing text output',pe);
+      }
+      document.getElementById('lb2').style.display='none';
+      document.getElementById('btn-s2').disabled=false;
+    }catch(e){
+      document.getElementById('lb2').style.display='none';
+      document.getElementById('kw-stream').innerHTML='<div style="color:var(--red);padding:16px">分析失败：'+e.message+'</div>';
+    }
+  }
+
+  else if(step==='audiences'){
+    nav(3);curStep=Math.max(curStep,3);
+    const el=document.getElementById('p3-content');
+    el.innerHTML='<div class="card"><div class="card-t">买家人群识别 <span style="font-size:12px;color:var(--tx3);font-weight:400">AI 分析中...</span></div><div id="aud-out" style="font-size:13px;line-height:1.8;color:var(--tx);max-height:400px;overflow-y:auto"></div></div><div id="aud-ui"></div>';
+    document.getElementById('lb3').style.display='block';
+    const prompt=SYS+`\n\n## 用户配置\n${cfg}\n\n## 用户数据\n${data}\n\n## 上一步分析结果（关键词四级分类）\n${R.keywords||'暂无'}\n\n## 任务：买家人群识别\n\n基于关键词的购买意图（不是字面文本）识别3-7个买家人群。\n\n【关键规则】\n1. 品类相关度校验：每个代表关键词标注品类相关度（高/中/低）。搜索该词后Amazon首页出现3+同类产品=高相关，1-2个=中，0个=低。低相关词（如kitchen decor、wife birthday gift ideas）不纳入搜索量计算。\n2. 搜索量只算高相关词：月搜索量=高相关词的周搜索量之和×4，标注计算过程。严禁将宽泛词搜索量算入窄人群。\n3. 人群重叠检查：如果两个人群共享>50%搜索词，必须合并。按"不同搜索入口词"区分人群，不按人口标签。\n4. 优先级排序（必须输出）：综合三个维度——真实可触达流量、差异化空间、转化潜力，给出明确排序。排第1的占Title+Bullet第1条。\n5. 严禁编造产品特征：只能使用用户提供的产品信息中的特征，未提到的特征不能写进分析。\n\n每个人群需要：\n- 人群名称（大白话）\n- 优先级排名（#1/#2/#3...）\n- 买家画像\n- 代表关键词+品类相关度（每个词标注高/中/低）\n- 月搜索量（仅高相关词，写出计算过程）\n- 竞品覆盖度（高/中/低+具体比例）\n- 核心诉求\n- 差异化机会（本品哪个特征能打动+竞品为什么没做到）\n- 建议Listing分配位置\n\n最后输出优先级总排序，并请用户选择人群和确认分配方案。`;
+    try{
+      R.audiences=await callAI(prompt,true,document.getElementById('aud-out'));
+      
+      // Convert to JSON for structured rendering
+      document.getElementById('aud-out').style.maxHeight='200px';
+      document.getElementById('aud-out').style.overflow='hidden';
+      const prompt2=`请将以下买家人群分析结果转换为严格的JSON格式。只输出JSON，不要其他文字或markdown。
+
+${R.audiences}
+
+JSON格式：
+{
+  "stats": {"total_keywords": 数字, "audience_count": 数字, "competitor_count": 数字},
+  "audiences": [
+    {
+      "name": "人群名称",
+      "priority": 1,
+      "color": "#1a73c7",
+      "desc": "一句话画像描述",
+      "keywords": "代表关键词，逗号分隔",
+      "volume": "月搜索量文字（如：约2,936）",
+      "coverage": "竞品覆盖度（如：中 35%）",
+      "need": "核心诉求一句话",
+      "opportunity": "差异化机会一句话",
+      "badge": "差异化机会或蓝海人群或空字符串",
+      "position": "建议分配位置（如：Title + Bullet第1条）"
+    }
+  ],
+  "priority_order": "优先级排序说明",
+  "overlap_check": "人群重叠检查结论"
+}
+color字段请依次使用：#1a73c7, #e67e22, #0f7b5f, #7c3aed, #db2777, #b7791f, #0a4d8c`;
+      
+      const jStr=await callAI(prompt2,false);
+      try{
+        const clean=jStr.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+        const j=JSON.parse(clean);
+        R.audJSON=j;
+        renderAudUI(j);
+      }catch(pe){console.log('Audience JSON parse failed',pe);}
+      
+      document.getElementById('lb3').style.display='none';
+      document.getElementById('btn-s3').disabled=false;
+    }catch(e){
+      document.getElementById('lb3').style.display='none';
+      document.getElementById('aud-out').innerHTML='<div style="color:var(--red);padding:16px">分析失败：'+e.message+'</div>';
+    }
+  }
+
+  else if(step==='competitors'){
+    nav(4);curStep=Math.max(curStep,4);
+    const el=document.getElementById('p4-content');
+    el.innerHTML='<div class="card"><div class="card-t">竞品文案分析 <span style="font-size:12px;color:var(--tx3);font-weight:400">AI 分析中...</span></div><div id="comp-out" style="font-size:13px;line-height:1.8;color:var(--tx);max-height:400px;overflow-y:auto"></div></div><div id="comp-ui"></div>';
+    document.getElementById('lb4').style.display='block';
+    const hasRev=!!(F.rev||document.getElementById('t-rev')?.value);
+    const hasRuf=!!(F.ruf||document.getElementById('t-ruf')?.value);
+    const prompt=SYS+`\n\n## 用户配置\n${cfg}\n\n## 用户数据\n${data}\n\n## 之前的分析结果\n### 关键词四级分类\n${R.keywords||'暂无'}\n### 买家人群\n${R.audiences||'暂无'}\n\n## 任务：竞品文案分析 + 买家决策因素整合\n\n【核心原则】从"按竞品陈列"转向"按决策维度组织"。同一个洞察只说一次，不在不同模块重复。总输出控制在2000字以内。\n\n请输出以下四个部分：\n\n### 第一部分：Title结构公式提炼（300字以内）\n- 总结2-3个被验证有效的Title结构公式\n- 1个最佳范例（标注为什么好）+ 1个反面范例（标注为什么差）\n- 品类标配词（竞品使用率>70%的词，不用就丢权重）\n- 差异化埋词机会（使用率<30%但搜索量不低的词）\n\n### 第二部分：五点主题策略（500字以内）\n不按竞品拆解，按"你的5条Bullet应该分别讲什么主题"来组织：\n- 基于Step 2人群优先级，建议Bullet 1-5各对应什么主题\n- 每个主题给出竞品最佳写法范例（一句话）+ 建议改进方向\n- 最后做一次语义维度覆盖检查（产品能力/使用功能/使用场景/目标人群/触发事件/搭配使用/身份反推），不要在每条Bullet后逐条标注COSMO\n\n### 第三部分：差异化弹药库（一张两列表）\n将竞品分析、评论数据、Rufus洞察三个来源合并为一张表：\n左列="竞品都在说的（基本面，必须覆盖）" \n右列="竞品没人说但买家在意的（差异化武器）"\n每条标注信息来源（竞品/评论/Rufus）\n\n### 第四部分：待卖家确认清单\n列出分析中涉及但用户未明确提供的产品特征（材质/尺寸/配件/包装），标注为"待确认"而非"严禁使用"——卖家确认后即可启用。':''}`;
+    try{
+      R.competitors=await callAI(prompt,true,document.getElementById('comp-out'));
+      
+      // Convert to JSON for structured rendering
+      document.getElementById('comp-out').style.maxHeight='200px';
+      document.getElementById('comp-out').style.overflow='hidden';
+      const prompt2=`请将以下竞品分析结果转换为严格JSON。只输出JSON。
+
+${R.competitors}
+
+JSON格式：
+{
+  "title_formulas": {
+    "formulas": ["公式1描述","公式2描述"],
+    "best_example": {"asin":"B0xxxxx","text":"Title原文","why":"好在哪"},
+    "bad_example": {"asin":"B0xxxxx","text":"Title原文","why":"差在哪"},
+    "must_have_words": ["词1","词2"],
+    "opportunity_words": ["词1","词2"]
+  },
+  "bullet_strategy": [
+    {"bullet":1,"theme":"主题名","audience":"对应人群","example":"竞品最佳范例一句话","improve":"改进方向"}
+  ],
+  "semantic_check": ["产品能力✓","使用功能✓","使用场景✓","目标人群✓","触发事件?","搭配使用?","身份反推?"],
+  "ammo_table": {
+    "basics": [{"point":"基本面要点","source":"竞品/评论"}],
+    "differentiators": [{"point":"差异化武器","source":"评论/Rufus/竞品空白"}]
+  },
+  "confirm_checklist": [{"item":"材质是否为xx?","status":"待确认"}]
+}`;
+      
+      const jStr=await callAI(prompt2,false);
+      try{
+        const clean=jStr.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+        const j=JSON.parse(clean);
+        R.compJSON=j;
+        renderCompUI(j);
+      }catch(pe){console.log('Comp JSON parse failed',pe);}
+      
+      document.getElementById('lb4').style.display='none';
+      document.getElementById('btn-s4').disabled=false;
+    }catch(e){
+      document.getElementById('lb4').style.display='none';
+      document.getElementById('comp-out').innerHTML='<div style="color:var(--red);padding:16px">分析失败：'+e.message+'</div>';
+    }
+  }
+
+  else if(step==='listing'){
+    nav(5);curStep=Math.max(curStep,5);
+    const el=document.getElementById('p5-content');
+    el.innerHTML='<div class="card"><div class="card-t">Listing 生成与校验 <span style="font-size:12px;color:var(--tx3);font-weight:400">AI 生成中...</span></div><div id="list-stream" style="font-size:13px;line-height:1.8;color:var(--tx);max-height:400px;overflow-y:auto"></div></div><div id="list-ui"></div>';
+    document.getElementById('lb5').style.display='block';
+    const tl=document.getElementById('cfg-tl').value;const stl=document.getElementById('cfg-st').value;
+    const prompt=SYS+`\n\n## 用户配置\n${cfg}\n\n## 之前所有分析结果\n### 关键词四级分类\n${R.keywords||'暂无'}\n### 买家人群\n${R.audiences||'暂无'}\n### 竞品文案分析\n${R.competitors||'暂无'}\n\n## 任务：生成完整Listing + 校验报告\n\n基于以上所有分析结果，生成完整的Amazon Listing。\n\n### 生成要求\n\n**Title：**\n- 品牌名+一级词×1-2+核心属性+场景词/人群词\n- ≤${tl}字符，150-180字符左右，核心信息在前70-80字符\n- 标注覆盖的人群和COSMO标签\n\n**五点描述（每条≤250字符）：**\n- 每条100-180字符，只传达一个核心信息\n- 以首字母大写（Title Case）短语开头，用买家语言\n- 说结果不说参数，关键词自然融入，同一词/植物名最多出现2次（第3次换替代词）\n- 文案中绝不出现FAB标签或COSMO标签\n- 未确认数字用模糊安全表达\n- 必须有可量化数字\n\n**Search Terms：**\n- ≤${stl} bytes\n- 严禁重复Title和Bullet中已出现的词（Amazon自动索引前台文案），空格分隔，无逗号\n- 标注字节数\n\n### 校验报告\n1. 文案质量（FAB标签残留？Bullet字符数？买家语言？未确认数字？绝对化承诺？）\n2. 关键词覆盖（Title词根重复？Top20覆盖率？）\n3. 合规检查（字符/字节/禁用词/商业场景风险）\n4. 语义维度覆盖（统一检查一次）\n\n### 优化建议（2-3条具体建议）`;
+    try{
+      R.listing=await callAI(prompt,true,document.getElementById('list-stream'));
+      
+      // Convert to JSON for structured rendering
+      document.getElementById('list-stream').style.maxHeight='200px';
+      document.getElementById('list-stream').style.overflow='hidden';
+      const prompt2=`请将以下Listing生成结果转换为严格的JSON格式。只输出JSON，不要其他文字。
+
+${R.listing}
+
+JSON格式：
+{
+  "title":{"text":"Title全文","audiences":["人群1","人群2"],"cosmo":["tag1"],"l1_keywords":["词1"],"mobile_safe":true},
+  "bullets":[
+    {"text":"Bullet全文","audience":"人群名","pain":"回应痛点#X","rufus":"修复Rufus QX","cosmo":["tag1","tag2"]}
+  ],
+  "search_terms":{"text":"ST全文","bytes":198},
+  
+  "validation":{
+    "quality_check":["无FAB/COSMO标签残留","每条Bullet 180-270字符","买家语言","无未确认数字","无绝对化承诺"],
+    "semantic_coverage":["产品能力 ✓","使用功能 ✓","使用场景 ✓","目标人群 ✓","触发事件 ✓","搭配使用 ✓","买家身份 ✓"],
+    "audience_map":["水培入门 → 第1条","居家装饰 → 第2条"],
+    "pain_points":["#1 玻璃薄 → 第4条"],"pain_count":"6/8 已回应",
+    "rufus_fixes":["Q2 对比 → 第4条"],"rufus_count":"5/5 已修复",
+    "noise_check":["5条主题无重叠","无营销废话","形容词有数字","每条独立信息"],
+    "compliance":["Title字符合规","ST字节合规","无禁用词","无未认证声明"],
+    "kw_coverage":"17/20","kw_coverage_pct":85,"kw_missing":"jar, retro",
+    "superlative_score":"2.8"
+  }
+}
+pain和rufus字段如果没有就设为空字符串""。`;
+      
+      const jStr=await callAI(prompt2,false);
+      try{
+        const clean=jStr.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+        const j=JSON.parse(clean);
+        R.listingJSON=j;
+        renderListingUI(j);
+        document.getElementById('list-stream').parentElement.style.display='none';
+      }catch(pe){console.log('Listing JSON parse failed',pe);}
+      
+      document.getElementById('lb5').style.display='none';
+      document.getElementById('btn-s5').disabled=false;
+    }catch(e){
+      document.getElementById('lb5').style.display='none';
+      document.getElementById('list-stream').innerHTML='<div style="color:var(--red);padding:16px">生成失败：'+e.message+'</div>';
+    }
+  }
+}
+
+// ============ EXPORT ============
+
+// ============ RENDER KEYWORD UI (structured) ============
+
+// ============ RENDER AUDIENCE UI (stat cards + selectable audience cards) ============
+
+// ============ RENDER COMPETITOR ANALYSIS UI (4-part structured) ============
+function renderCompUI(j){
+  let html='';
+  const tf=j.title_formulas||{};
+  const bs=j.bullet_strategy||[];
+  const sc=j.semantic_check||[];
+  const at=j.ammo_table||{};
+  const cc=j.confirm_checklist||[];
+  
+  // Part 1: Title Formula
+  html+=`<div class="card"><div class="card-t" style="border-bottom:2px solid var(--navy);padding-bottom:8px;margin-bottom:14px">第一部分：Title 结构公式</div>`;
+  if(tf.formulas)(tf.formulas).forEach((f,i)=>{html+=`<div style="font-size:13px;color:var(--tx);margin-bottom:6px;line-height:1.6"><b style="color:var(--navy)">公式${i+1}：</b>${f}</div>`;});
+  if(tf.best_example)html+=`<div style="margin:12px 0;padding:12px 16px;background:var(--grn-bg);border-radius:var(--r);border-left:3px solid var(--grn)"><div style="font-size:11px;font-weight:600;color:var(--grn);margin-bottom:4px">✓ 最佳范例 ${tf.best_example.asin||''}</div><div style="font-size:12px;color:var(--tx);margin-bottom:4px;font-style:italic">${tf.best_example.text||''}</div><div style="font-size:11px;color:var(--grn)">${tf.best_example.why||''}</div></div>`;
+  if(tf.bad_example)html+=`<div style="margin:8px 0;padding:12px 16px;background:var(--red-bg);border-radius:var(--r);border-left:3px solid var(--red)"><div style="font-size:11px;font-weight:600;color:var(--red);margin-bottom:4px">✗ 反面范例 ${tf.bad_example.asin||''}</div><div style="font-size:12px;color:var(--tx);margin-bottom:4px;font-style:italic">${tf.bad_example.text||''}</div><div style="font-size:11px;color:var(--red)">${tf.bad_example.why||''}</div></div>`;
+  if(tf.must_have_words)html+=`<div style="margin-top:12px;font-size:12px;color:var(--tx2)"><b style="color:var(--navy)">品类标配词（必须用）：</b>${tf.must_have_words.join('、')}</div>`;
+  if(tf.opportunity_words)html+=`<div style="margin-top:6px;font-size:12px;color:var(--tx2)"><b style="color:var(--amb)">差异化埋词机会：</b>${tf.opportunity_words.join('、')}</div>`;
+  html+=`</div>`;
+  
+  // Part 2: Bullet Strategy
+  html+=`<div class="card"><div class="card-t" style="border-bottom:2px solid var(--navy);padding-bottom:8px;margin-bottom:14px">第二部分：五点主题策略</div>`;
+  bs.forEach(b=>{
+    html+=`<div style="margin-bottom:14px;padding:14px 16px;background:var(--bgs);border-radius:var(--r);border-left:3px solid var(--navy)">
+      <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:4px">Bullet ${b.bullet}：${b.theme} <span style="font-size:11px;font-weight:400;color:var(--tx3);margin-left:8px">→ ${b.audience||''}</span></div>
+      ${b.example?'<div style="font-size:12px;color:var(--tx2);margin-bottom:4px;padding-left:12px;border-left:2px solid var(--bdl);font-style:italic">竞品范例：'+b.example+'</div>':''}
+      ${b.improve?'<div style="font-size:12px;color:var(--grn);margin-top:4px"><b>改进方向：</b>'+b.improve+'</div>':''}
+    </div>`;
+  });
+  if(sc.length>0)html+=`<div style="margin-top:10px;padding:12px 16px;background:var(--navy-f);border:1px solid var(--navy-p);border-radius:var(--r)"><div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:6px">语义维度覆盖检查</div><div style="font-size:12px;color:var(--tx2);line-height:1.8">${sc.join(' · ')}</div></div>`;
+  html+=`</div>`;
+  
+  // Part 3: Ammo Table
+  html+=`<div class="card"><div class="card-t" style="border-bottom:2px solid var(--navy);padding-bottom:8px;margin-bottom:14px">第三部分：差异化弹药库</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div><div style="font-size:13px;font-weight:600;color:var(--tx);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--bdl)">竞品都在说的（基本面）</div>`;
+  (at.basics||[]).forEach(b=>{html+=`<div style="font-size:12px;color:var(--tx2);margin-bottom:6px;line-height:1.5;padding-left:10px;border-left:2px solid var(--bdl)"><b>${b.point}</b><br><span style="font-size:10px;color:var(--tx3)">来源：${b.source||''}</span></div>`;});
+  html+=`</div><div><div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--navy-p)">竞品没说但买家在意的（差异化武器）</div>`;
+  (at.differentiators||[]).forEach(d=>{html+=`<div style="font-size:12px;color:var(--navy);margin-bottom:6px;line-height:1.5;padding-left:10px;border-left:2px solid var(--navy)"><b>${d.point}</b><br><span style="font-size:10px;color:var(--tx3)">来源：${d.source||''}</span></div>`;});
+  html+=`</div></div></div>`;
+  
+  // Part 4: Confirm Checklist
+  if(cc.length>0){
+    html+=`<div class="card"><div class="card-t" style="border-bottom:2px solid var(--amb);padding-bottom:8px;margin-bottom:14px">第四部分：待卖家确认清单</div>
+      <div class="card-d">以下特征在分析中被提及但用户未明确提供，请逐条确认后启用为卖点。</div>`;
+    cc.forEach((item,idx)=>{
+      html+=`<div style="margin-bottom:10px;padding:12px 16px;background:var(--amb-bg);border-radius:var(--r)">
+        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px">
+          <input type="checkbox" id="ck-${idx}" style="margin-top:3px;flex-shrink:0;width:auto" onchange="this.parentElement.nextElementSibling.style.display=this.checked?'block':'none'">
+          <div style="font-size:12px;color:var(--tx2);line-height:1.5"><b>${item.item}</b><br><span style="font-size:11px;color:var(--amb)">${item.status||'待确认'}</span></div>
+        </div>
+        <div style="display:none;margin-top:6px;padding-left:26px">
+          <input type="text" placeholder="填写确认后的具体信息，如：是，材质为高硼硅玻璃" style="width:100%;font-size:12px;padding:8px 12px;border:1px solid rgba(183,121,31,.25);border-radius:var(--r);background:var(--bg);color:var(--tx)">
+        </div>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+  
+  document.getElementById('comp-ui').innerHTML=html;
+  const st=document.getElementById('comp-out');
+  if(st)st.parentElement.style.display='none';
+}
+
+function renderAudUI(j){
+  let html='';
+  
+  // Stat cards row
+  const s=j.stats||{};
+  html+=`<div class="stg">
+    <div class="stc"><div class="stn" style="color:var(--navy)">${s.total_keywords||'—'}</div><div class="stl">关键词总数</div></div>
+    <div class="stc"><div class="stn" style="color:var(--grn)">${(j.audiences||[]).length}</div><div class="stl">识别到的买家人群</div></div>
+    <div class="stc"><div class="stn">${s.competitor_count||'—'}</div><div class="stl">竞品ASIN</div></div>
+    <div class="stc"><div class="stn" style="color:var(--navy)">#1</div><div class="stl">优先级排序已完成</div></div>
+  </div>`;
+  
+  // Audience selection cards
+  html+=`<div class="card"><div class="card-t">选择目标买家人群</div>
+    <div class="card-d">AI 已按优先级排序。请勾选要服务的人群（建议3-5个），未选中的不会出现在 Listing 中。</div>
+    <div class="ag">`;
+  
+  (j.audiences||[]).forEach((a,i)=>{
+    const badgeHtml=a.badge==='差异化机会'?'<span class="bo">差异化机会</span>':a.badge==='蓝海人群'?'<span class="bb">蓝海人群</span>':'';
+    html+=`<div class="ac sel" data-idx="${i}" onclick="this.classList.toggle('sel')">
+      <div class="ack"></div>
+      <div class="an"><span class="adot" style="background:${a.color||'#1a73c7'}"></span>${a.name} ${badgeHtml}</div>
+      <div class="adesc">${a.desc||''}</div>
+      <div class="ast"><b>月搜索量</b> ${a.volume||'—'} · <b>竞品覆盖</b> ${a.coverage||'—'} · <b>优先级</b> #${a.priority||i+1}</div>
+      <div class="akw">${a.keywords||''}</div>
+      ${a.opportunity?'<div style="margin-top:6px;font-size:11px;color:var(--navy);line-height:1.5"><b>差异化：</b>'+a.opportunity+'</div>':''}
+      ${a.position?'<div style="margin-top:4px;font-size:11px;color:var(--tx3)"><b>建议位置：</b>'+a.position+'</div>':''}
+    </div>`;
+  });
+  html+=`</div>`;
+  
+  // Priority summary
+  if(j.priority_order){
+    html+=`<div style="margin-top:14px;padding:14px 16px;background:var(--navy-f);border:1px solid var(--navy-p);border-radius:var(--r);font-size:12px;color:var(--navy);line-height:1.6"><b>优先级排序：</b>${j.priority_order}</div>`;
+  }
+  if(j.overlap_check){
+    html+=`<div style="margin-top:8px;padding:10px 16px;background:var(--bgs);border-radius:var(--r);font-size:11px;color:var(--tx2);line-height:1.5"><b>人群重叠检查：</b>${j.overlap_check}</div>`;
+  }
+  
+  html+=`</div>`;
+  
+  document.getElementById('aud-ui').innerHTML=html;
+  // Collapse streaming text
+  const st=document.getElementById('aud-out');
+  if(st)st.parentElement.style.display='none';
+}
+
+function renderKwUI(j){
+  const lc={1:'k1',2:'k2',3:'k3',4:'k4'};
+  const ln={1:'一级',2:'二级',3:'三级',4:'四级'};
+  
+  
+  let html='<div class="card"><div class="card-t">关键词四级分类（按词根递进）</div><div class="card-d">点击词根展开，查看一级到四级的递进关系及ABA排名。</div>';
+  
+  (j.roots||[]).forEach((root,i)=>{
+    html+=`<div class="kwg${i===0?' open':''}" onclick="this.classList.toggle('open')">
+      <div class="kwh"><span class="kwh-n">词根 ${i+1}：${root.name}</span><span class="kwh-m"></span></div>
+      <div class="kwb" onclick="event.stopPropagation()">
+        <div class="kwr krh"><span>级别</span><span>关键词</span><span style="text-align:right">搜索量</span><span style="text-align:right">ABA排名</span></div>`;
+    (root.words||[]).forEach(w=>{
+      html+=`<div class="kwr"><span class="klv ${lc[w.level]||'k1'}">${ln[w.level]||w.level}</span><span class="kw">${w.word}</span><span class="kv">${(w.volume||0).toLocaleString()}</span><span class="ka">${w.aba||'—'}</span></div>`;
+    });
+    html+=`</div></div>`;
+  });
+  
+  // Orphan words
+  if(j.orphans&&j.orphans.length>0){
+    html+=`<div style="margin-top:14px;padding:14px 16px;background:var(--amb-bg);border:1px solid rgba(183,121,31,.15);border-radius:var(--r)"><div style="font-size:13px;font-weight:600;color:var(--amb);margin-bottom:8px">独立高价值词（不属于以上词根但必须覆盖）</div>`;
+    j.orphans.forEach(o=>{
+      html+=`<div style="font-size:12px;color:var(--tx2);margin-bottom:4px"><b>${o.word}</b> — 搜索量 ${(o.volume||0).toLocaleString()} · ABA ${o.aba||'—'} · 建议埋入：${o.position||'ST'}</div>`;
+    });
+    html+=`</div>`;
+  }
+  
+  // Summary
+  if(j.summary){
+    html+=`<div class="smb" style="margin-top:14px"><b>总结：</b>共 <b>${j.summary.total_roots||0} 个一级词根</b>，${j.summary.total_keywords||0} 个关键词。Title用词优先顺序：${(j.summary.priority_order||[]).join(' > ')}</div>`;
+  }
+  
+  html+='</div>';
+  document.getElementById('kw-ui').innerHTML=html;
+  // Collapse the streaming text
+  const st=document.getElementById('kw-stream');
+  if(st)st.parentElement.style.display='none';
+}
+
+// ============ RENDER LISTING UI (editor + side panels) ============
+function renderListingUI(j){
+  if(!j)return;
+  const el=document.getElementById('p5-content');
+  
+  // Build left column: Title + Bullets + ST + A+
+  let left='';
+  
+  // Title
+  const t=j.title||{};
+  left+=`<div class="card"><div class="card-t">Title <span style="font-size:12px;color:var(--tx3);font-weight:400">${(t.text||'').length} / ${document.getElementById('cfg-tl').value}</span></div>
+    <div class="bh">${(t.audiences||[]).map(a=>'<span class="bt bt-a">'+a+'</span>').join('')}<div class="ctags">${(t.cosmo||[]).map(c=>'<span class="ctg ctg-on">'+c+'</span>').join('')}</div><button class="rg" onclick="runStep('listing')">重新生成</button></div>
+    <textarea style="width:100%;font-size:13px;line-height:1.6;padding:10px 14px;border:1px solid var(--bd);border-radius:var(--r);color:var(--tx);resize:vertical;font-family:var(--f)" rows="2">${t.text||''}</textarea>
+    <div class="bm"><span class="m-ok">${(t.text||'').length} 字符</span><span>·</span><span class="m-ok">一级词: ${(t.l1_keywords||[]).join(', ')}</span><span>·</span><span class="m-ok">${t.mobile_safe?'移动端安全':'⚠ 检查移动端'}</span></div>
+  </div>`;
+  
+  // Bullets
+  left+=`<div class="card"><div class="card-t">五点描述 <span style="font-size:12px;color:var(--tx3);font-weight:400">基于${(j.bullets||[]).length}个买家人群</span></div>`;
+  (j.bullets||[]).forEach((b,i)=>{
+    left+=`<div class="bf"><div class="bh"><span class="bl">第${i+1}条</span><span class="bt bt-a">${b.audience||''}</span>${b.pain?'<span class="bt bt-p">'+b.pain+'</span>':''}${b.rufus?'<span class="bt bt-r">'+b.rufus+'</span>':''}<div class="ctags">${(b.cosmo||[]).map(c=>'<span class="ctg ctg-on">'+c+'</span>').join('')}</div><button class="rg">重新生成</button></div>
+    <textarea style="width:100%;font-size:12px;line-height:1.65;padding:10px 14px;border:1px solid var(--bd);border-radius:var(--r);color:var(--tx);resize:vertical;font-family:var(--f)" rows="3">${b.text||''}</textarea>
+    <div class="bm"><span class="m-ok">${(b.text||'').length} 字符</span><span>·</span><span class="m-ok">无冗余</span></div></div>`;
+  });
+  left+='</div>';
+  
+  // Search Terms
+  const st=j.search_terms||{};
+  left+=`<div class="card"><div class="card-t">Search Terms <span style="font-size:12px;color:var(--tx3);font-weight:400">${st.bytes||0} / ${document.getElementById('cfg-st').value} bytes</span></div>
+    <textarea style="width:100%;font-size:12px;line-height:1.65;padding:10px 14px;border:1px solid var(--bd);border-radius:var(--r);color:var(--tx);resize:vertical;font-family:var(--f)" rows="3">${st.text||''}</textarea>
+    <div class="bm"><span class="m-ok">${st.bytes||0} bytes</span><span>·</span><span class="m-ok">无前台重复</span><span>·</span><span class="m-ok">剩余 ${(parseInt(document.getElementById('cfg-st').value)||249)-(st.bytes||0)} bytes</span></div>
+  </div>`;
+  
+  
+  
+  // Build right column: validation panels
+  let right='';
+  const v=j.validation||{};
+  
+  // COSMO coverage
+  right+=`<div class="sc"><div class="sct">COSMO 标签</div><div class="cvb"><div class="cvf" style="width:${(v.cosmo_count||0)/7*100}%;background:var(--grn)"></div></div>`;
+  (v.cosmo_detail||[]).forEach(c=>{right+=`<div class="ci"><span class="cok">✓</span> ${c}</div>`;});
+  right+=`<div style="font-size:10px;color:var(--grn);font-weight:600;margin-top:4px">${v.cosmo_count||0}/7 覆盖</div></div>`;
+  
+  // Audience mapping
+  right+=`<div class="sc"><div class="sct">人群 → BULLET</div>`;
+  const colors=['#1a73c7','#e67e22','#0f7b5f','#7c3aed','#db2777','#b7791f','#0a4d8c'];
+  (v.audience_map||[]).forEach((a,i)=>{right+=`<div class="cmr"><span class="cmd" style="background:${colors[i%7]}"></span>${a}</div>`;});
+  right+='</div>';
+  
+  // Pain points
+  if(v.pain_points&&v.pain_points.length>0){
+    right+=`<div class="sc"><div class="sct">竞品痛点回应</div>`;
+    v.pain_points.forEach(p=>{right+=`<div class="ci"><span class="cok">✓</span> ${p}</div>`;});
+    right+=`<div style="font-size:10px;color:var(--grn);font-weight:600;margin-top:4px">${v.pain_count||''}</div></div>`;
+  }
+  
+  // Rufus gaps
+  if(v.rufus_fixes&&v.rufus_fixes.length>0){
+    right+=`<div class="sc"><div class="sct">Rufus 缺口修复</div>`;
+    v.rufus_fixes.forEach(r=>{right+=`<div class="ci"><span class="cok">✓</span> ${r}</div>`;});
+    right+=`<div style="font-size:10px;color:var(--grn);font-weight:600;margin-top:4px">${v.rufus_count||''}</div></div>`;
+  }
+  
+  // Noise check
+  right+=`<div class="sc"><div class="sct">去噪检查</div>`;
+  (v.noise_check||['5条主题无重叠','无营销废话','形容词有数字','每条独立信息']).forEach(n=>{right+=`<div class="ci"><span class="cok">✓</span> ${n}</div>`;});
+  right+='</div>';
+  
+  // Compliance
+  right+=`<div class="sc"><div class="sct">合规检查</div>`;
+  (v.compliance||['Title字符合规','ST字节合规','无禁用词','无未认证声明']).forEach(c=>{right+=`<div class="ci"><span class="cok">✓</span> ${c}</div>`;});
+  right+='</div>';
+  
+  // Keyword coverage
+  right+=`<div class="sc"><div class="sct">关键词覆盖</div><div class="cvb"><div class="cvf" style="width:${v.kw_coverage_pct||85}%;background:var(--navy)"></div></div><div style="font-size:11px;color:var(--tx2);line-height:1.5">Top20词根: <b>${v.kw_coverage||'17/20'}</b>${v.kw_missing?'<br><span style="color:var(--red)">缺:</span> '+v.kw_missing:''}</div></div>`;
+  
+  // Superlative score
+  right+=`<div class="sc"><div class="sct">最高级评分</div><div style="display:flex;align-items:center;gap:6px"><span style="font-size:20px;font-weight:700;color:var(--grn);font-family:var(--m)">${v.superlative_score||'2.8'}</span><span style="font-size:11px;color:var(--tx3)">/3.0</span></div></div>`;
+  
+  el.innerHTML=`<div class="editor"><div class="ed-m">${left}</div><div class="ed-s">${right}</div></div>`;
+}
+
+function buildExport(){
+  curStep=6;
+  document.getElementById('p6-content').innerHTML=`
+    <div class="sgrid">
+      <div class="scard"><div class="sn" style="color:var(--grn)">✓</div><div class="sl">关键词分析</div></div>
+      <div class="scard"><div class="sn" style="color:var(--grn)">✓</div><div class="sl">人群识别</div></div>
+      <div class="scard"><div class="sn" style="color:var(--grn)">✓</div><div class="sl">竞品拆解</div></div>
+      <div class="scard"><div class="sn" style="color:var(--grn)">✓</div><div class="sl">Listing生成</div></div>
+    </div>
+    <div class="card">
+      <div class="card-t">导出 Listing</div>
+      <div class="card-d">所有分析已完成。选择导出格式。</div>
+      <div class="egrid">
+        <div class="ebtn" onclick="expTxt()">纯文本（复制粘贴）<span class="fmt">.txt — Title / Bullet / ST</span></div>
+        <div class="ebtn" onclick="expFull()">完整报告<span class="fmt">.txt — 含所有分析+文案+校验</span></div>
+        <div class="ebtn" onclick="cpAll()">复制到剪贴板<span class="fmt">一键复制Listing文案</span></div>
+      </div>
+    </div>
+    <div class="ht" style="margin-top:16px"><b>下一步建议：</b><br>① 上传文案到 Seller Central，补充 Search Terms 缺失词根<br>② 按 A+ 规划准备图片素材<br>③ 用关键词四级分类结果搭建广告架构<br>④ 上架 2-4 周后用搜索词报告迭代</div>
+    <div class="br"><button class="btn bs" onclick="nav(5)">返回编辑</button></div>
+  `;
+}
+function expTxt(){
+  const blob=new Blob([R.listing||''],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='listing.txt';a.click();
+}
+function expFull(){
+  const full='=== 关键词四级分类 ===\n\n'+(R.keywords||'')+'\n\n=== 买家人群识别 ===\n\n'+(R.audiences||'')+'\n\n=== 竞品文案分析 ===\n\n'+(R.competitors||'')+'\n\n=== Listing生成与校验 ===\n\n'+(R.listing||'');
+  const blob=new Blob([full],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='listing-full-report.txt';a.click();
+}
+function cpAll(){navigator.clipboard.writeText(R.listing||'').then(()=>alert('已复制到剪贴板'));}
+</script>
+</body>
+</html>
